@@ -7,6 +7,7 @@ interface ScreenSource {
   id: string;
   name: string;
   thumbnail: string;
+  isEmpty: boolean;
 }
 
 /**
@@ -30,6 +31,8 @@ export function showScreenPicker(
       modal: true,
       backgroundColor: "#1a1a1a",
       show: false,
+      closable: true,
+      title: "Share Your Screen",
       webPreferences: {
         preload: join(__dirname, "picker-preload.js"),
         contextIsolation: true,
@@ -44,12 +47,16 @@ export function showScreenPicker(
       const sources = await desktopCapturer.getSources({
         types: ["screen", "window"],
         thumbnailSize: { width: 300, height: 188 },
+        fetchWindowIcons: true,
       });
 
       return sources.map((source) => ({
         id: source.id,
         name: source.name,
-        thumbnail: source.thumbnail.toDataURL(),
+        thumbnail: source.thumbnail.isEmpty()
+          ? ""
+          : source.thumbnail.toDataURL(),
+        isEmpty: source.thumbnail.isEmpty(),
       }));
     };
 
@@ -99,17 +106,18 @@ export function showScreenPicker(
       if (!resolved) {
         resolved = true;
         ipcMain.removeHandler("get-screen-sources");
-        ipcMain.removeListener(
-          "screen-source-selected",
-          handleSourceSelected,
-        );
+        ipcMain.removeListener("screen-source-selected", handleSourceSelected);
         ipcMain.removeListener("screen-source-cancelled", handleCancelled);
         resolve(null);
       }
     });
 
     // Load the picker HTML
-    const pickerHtmlPath = join(app.getAppPath(), "src", "picker.html");
+    // In packaged app, picker.html is in Resources/ (via extraResource).
+    // In dev, it's in the source tree.
+    const pickerHtmlPath = app.isPackaged
+      ? join(process.resourcesPath, "picker.html")
+      : join(app.getAppPath(), "src", "picker.html");
     pickerWindow.loadURL(pathToFileURL(pickerHtmlPath).toString());
 
     pickerWindow.once("ready-to-show", () => {

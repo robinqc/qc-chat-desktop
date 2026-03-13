@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -11,8 +11,9 @@
       }
 
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Helvetica, Arial, sans-serif;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
         background: #1a1a1a;
         color: #e0e0e0;
         overflow-y: auto;
@@ -20,23 +21,50 @@
       }
 
       .header {
-        padding: 20px 24px 12px;
+        padding: 16px 24px 12px;
         position: sticky;
         top: 0;
         background: #1a1a1a;
         z-index: 10;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
       }
 
-      .header h1 {
+      .header-text h1 {
         font-size: 18px;
         font-weight: 600;
         color: #ffffff;
         margin-bottom: 4px;
       }
 
-      .header p {
+      .header-text p {
         font-size: 13px;
         color: #888;
+      }
+
+      .btn-close {
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: #888;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition:
+          background 0.15s,
+          color 0.15s;
+        line-height: 1;
+      }
+
+      .btn-close:hover {
+        background: #333;
+        color: #e0e0e0;
       }
 
       .section {
@@ -64,7 +92,9 @@
         border-radius: 8px;
         cursor: pointer;
         overflow: hidden;
-        transition: border-color 0.15s, background 0.15s;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
       }
 
       .source:hover {
@@ -82,6 +112,17 @@
         object-fit: contain;
         background: #111;
         display: block;
+      }
+
+      .source .thumbnail-placeholder {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        font-size: 32px;
       }
 
       .source .name {
@@ -111,7 +152,9 @@
         color: #ccc;
         font-size: 13px;
         cursor: pointer;
-        transition: background 0.15s, border-color 0.15s;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
       }
 
       .btn-cancel:hover {
@@ -119,24 +162,29 @@
         border-color: #666;
       }
 
-      .loading {
+      .status {
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 60px 24px;
         color: #888;
         font-size: 14px;
+        text-align: center;
+        line-height: 1.5;
       }
     </style>
   </head>
   <body>
     <div class="header">
-      <h1>Share Your Screen</h1>
-      <p>Choose a screen or window to share</p>
+      <div class="header-text">
+        <h1>Share Your Screen</h1>
+        <p>Choose a screen or window to share</p>
+      </div>
+      <button class="btn-close" id="close-btn" title="Close">&times;</button>
     </div>
 
     <div id="content">
-      <div class="loading">Loading sources...</div>
+      <div class="status">Loading sources...</div>
     </div>
 
     <div class="actions">
@@ -147,17 +195,42 @@
       (async () => {
         const content = document.getElementById("content");
         const cancelBtn = document.getElementById("cancel-btn");
+        const closeBtn = document.getElementById("close-btn");
 
-        cancelBtn.addEventListener("click", () => {
-          window.screenPicker.cancel();
-        });
+        const doCancel = () => window.screenPicker.cancel();
 
-        // Escape key to cancel
+        cancelBtn.addEventListener("click", doCancel);
+        closeBtn.addEventListener("click", doCancel);
+
         document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") {
-            window.screenPicker.cancel();
-          }
+          if (e.key === "Escape") doCancel();
         });
+
+        function renderThumbnail(source) {
+          if (source.thumbnail) {
+            return `<img class="thumbnail" src="${source.thumbnail}" alt="${source.name}" />`;
+          }
+          // Placeholder icon for sources without thumbnails
+          const icon = source.id.startsWith("screen:") ? "&#9634;" : "&#9635;";
+          return `<div class="thumbnail-placeholder">${icon}</div>`;
+        }
+
+        function renderSection(title, sources) {
+          if (sources.length === 0) return "";
+          let html = '<div class="section">';
+          html += `<div class="section-title">${title}</div>`;
+          html += '<div class="grid">';
+          for (const source of sources) {
+            html += `
+              <div class="source" data-id="${source.id}">
+                ${renderThumbnail(source)}
+                <div class="name" title="${source.name}">${source.name}</div>
+              </div>
+            `;
+          }
+          html += "</div></div>";
+          return html;
+        }
 
         try {
           const sources = await window.screenPicker.getSources();
@@ -165,54 +238,29 @@
           const screens = sources.filter((s) => s.id.startsWith("screen:"));
           const windows = sources.filter((s) => s.id.startsWith("window:"));
 
-          let html = "";
-
-          if (screens.length > 0) {
-            html += '<div class="section">';
-            html += '<div class="section-title">Screens</div>';
-            html += '<div class="grid">';
-            for (const source of screens) {
-              html += `
-                <div class="source" data-id="${source.id}">
-                  <img class="thumbnail" src="${source.thumbnail}" alt="${source.name}" />
-                  <div class="name" title="${source.name}">${source.name}</div>
-                </div>
-              `;
-            }
-            html += "</div></div>";
-          }
-
-          if (windows.length > 0) {
-            html += '<div class="section">';
-            html += '<div class="section-title">Windows</div>';
-            html += '<div class="grid">';
-            for (const source of windows) {
-              html += `
-                <div class="source" data-id="${source.id}">
-                  <img class="thumbnail" src="${source.thumbnail}" alt="${source.name}" />
-                  <div class="name" title="${source.name}">${source.name}</div>
-                </div>
-              `;
-            }
-            html += "</div></div>";
-          }
-
           if (screens.length === 0 && windows.length === 0) {
-            html =
-              '<div class="loading">No screens or windows available to share.</div>';
+            content.innerHTML =
+              '<div class="status">' +
+              "<div>" +
+              '<div style="font-size: 16px; margin-bottom: 8px; color: #e0e0e0;">No screens or windows found</div>' +
+              '<div style="font-size: 13px; color: #888;">This usually means Screen Recording permission has not been granted.<br>' +
+              "Go to <strong>System Settings &gt; Privacy &amp; Security &gt; Screen Recording</strong>,<br>" +
+              "enable this app, then restart it.</div>" +
+              "</div></div>";
+            return;
           }
 
-          content.innerHTML = html;
+          content.innerHTML =
+            renderSection("Screens", screens) +
+            renderSection("Windows", windows);
 
-          // Attach click handlers
           document.querySelectorAll(".source").forEach((el) => {
             el.addEventListener("click", () => {
-              const sourceId = el.getAttribute("data-id");
-              window.screenPicker.selectSource(sourceId);
+              window.screenPicker.selectSource(el.getAttribute("data-id"));
             });
           });
         } catch (err) {
-          content.innerHTML = `<div class="loading">Error loading sources: ${err.message}</div>`;
+          content.innerHTML = `<div class="status">Error loading sources: ${err.message}</div>`;
         }
       })();
     </script>

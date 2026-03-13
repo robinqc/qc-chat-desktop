@@ -9,6 +9,12 @@ import { VitePlugin } from "@electron-forge/plugin-vite";
 import { PublisherGithub } from "@electron-forge/publisher-github";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import { execFile } from "node:child_process";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 // import { globSync } from "node:fs";
 
@@ -132,14 +138,15 @@ if (!process.env.PLATFORM) {
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    extraResource: ["src/picker.html"],
     name: STRINGS.name,
     executableName: STRINGS.execName,
     icon: `${ASSET_DIR}/icon`,
-    osxSign: {
-      optionsForFile: () => ({
-        entitlements: `${ASSET_DIR}/entitlements.plist`,
-      }),
-    },
+    // osxSign: {
+    //   optionsForFile: () => ({
+    //     entitlements: `${ASSET_DIR}/entitlements.plist`,
+    //   }),
+    // },
     extendInfo: {
       NSScreenCaptureUsageDescription:
         "This app requires screen recording access to share your screen in calls.",
@@ -152,6 +159,36 @@ const config: ForgeConfig = {
     },
   },
   rebuildConfig: {},
+  hooks: {
+    postPackage: async (_forgeConfig, { platform, outputPaths }) => {
+      if (platform !== "darwin") return;
+
+      for (const outputPath of outputPaths) {
+        const entries = await readdir(outputPath);
+        const appBundle = entries.find((e) => e.endsWith(".app"));
+        if (!appBundle) continue;
+
+        const appPath = join(outputPath, appBundle);
+        const entitlements = join(
+          process.cwd(),
+          ASSET_DIR,
+          "entitlements.plist",
+        );
+
+        console.log(`Ad-hoc signing ${appPath} with entitlements...`);
+        await execFileAsync("codesign", [
+          "--deep",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          entitlements,
+          appPath,
+        ]);
+        console.log("Ad-hoc signing complete.");
+      }
+    },
+  },
   makers,
   plugins: [
     new VitePlugin({

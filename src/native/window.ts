@@ -7,14 +7,12 @@ import {
   app,
   ipcMain,
   nativeImage,
-  systemPreferences,
 } from "electron";
-
-import { showScreenPicker } from "./screenPicker";
 
 import windowIconAsset from "../../assets/desktop/icon.png?asset";
 
 import { config } from "./config";
+import { showScreenPicker } from "./screenPicker";
 import { updateTrayMenu } from "./tray";
 
 // global reference to main window
@@ -89,23 +87,23 @@ export function createMainWindow() {
   // load the entrypoint
   mainWindow.loadURL(BUILD_URL.toString());
 
-  // Handle screen sharing requests from the web app
+  // Handle screen sharing requests from the web app.
+  // Note: we skip checking systemPreferences.getMediaAccessStatus("screen")
+  // because it is unreliable on macOS (returns stale values even after
+  // permission is granted). Instead, the picker UI handles the empty-sources
+  // case with a helpful message.
   mainWindow.webContents.session.setDisplayMediaRequestHandler(
-    async (_request, callback) => {
-      // On macOS, check if we have screen recording permission
-      if (process.platform === "darwin") {
-        const hasAccess =
-          systemPreferences.getMediaAccessStatus("screen") === "granted";
-        if (!hasAccess) {
-          // This will trigger the macOS permission prompt
-          // The user will need to grant permission in System Preferences
-          // and potentially restart the app
-        }
-      }
-
+    async (request, callback) => {
       const source = await showScreenPicker(mainWindow);
       if (source) {
-        callback({ video: source, audio: "loopback" });
+        // Only request loopback audio if the web page asked for audio
+        const audio =
+          request.audioRequested &&
+          (process.platform === "darwin" || process.platform === "win32")
+            ? "loopback"
+            : undefined;
+
+        callback({ video: source, audio });
       } else {
         // User cancelled the picker
         callback({});
