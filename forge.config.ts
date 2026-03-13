@@ -135,10 +135,19 @@ const config: ForgeConfig = {
     name: STRINGS.name,
     executableName: STRINGS.execName,
     icon: `${ASSET_DIR}/icon`,
-    // extraResource: [
-    //   // include all the asset files
-    //   ...globSync(ASSET_DIR + "/**/*"),
-    // ],
+    osxSign: {
+      optionsForFile: () => ({
+        entitlements: `${ASSET_DIR}/entitlements.plist`,
+      }),
+    },
+    extendInfo: {
+      NSScreenCaptureUsageDescription:
+        "This app requires screen recording access to share your screen in calls.",
+      NSMicrophoneUsageDescription:
+        "This app requires microphone access for voice and video calls.",
+      NSCameraUsageDescription:
+        "This app requires camera access for video calls.",
+    },
   },
   rebuildConfig: {},
   makers,
@@ -155,6 +164,11 @@ const config: ForgeConfig = {
         },
         {
           entry: "src/preload.ts",
+          config: "vite.preload.config.ts",
+          target: "preload",
+        },
+        {
+          entry: "src/picker-preload.ts",
           config: "vite.preload.config.ts",
           target: "preload",
         },

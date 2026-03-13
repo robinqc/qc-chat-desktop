@@ -7,7 +7,10 @@ import {
   app,
   ipcMain,
   nativeImage,
+  systemPreferences,
 } from "electron";
+
+import { showScreenPicker } from "./screenPicker";
 
 import windowIconAsset from "../../assets/desktop/icon.png?asset";
 
@@ -21,7 +24,7 @@ export let mainWindow: BrowserWindow;
 export const BUILD_URL = new URL(
   app.commandLine.hasSwitch("force-server")
     ? app.commandLine.getSwitchValue("force-server")
-    : /*MAIN_WINDOW_VITE_DEV_SERVER_URL ??*/ "https://beta.revolt.chat",
+    : /*MAIN_WINDOW_VITE_DEV_SERVER_URL ??*/ "https://chat.robinqc.dev",
 );
 
 // internal window state
@@ -85,6 +88,50 @@ export function createMainWindow() {
 
   // load the entrypoint
   mainWindow.loadURL(BUILD_URL.toString());
+
+  // Handle screen sharing requests from the web app
+  mainWindow.webContents.session.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      // On macOS, check if we have screen recording permission
+      if (process.platform === "darwin") {
+        const hasAccess =
+          systemPreferences.getMediaAccessStatus("screen") === "granted";
+        if (!hasAccess) {
+          // This will trigger the macOS permission prompt
+          // The user will need to grant permission in System Preferences
+          // and potentially restart the app
+        }
+      }
+
+      const source = await showScreenPicker(mainWindow);
+      if (source) {
+        callback({ video: source, audio: "loopback" });
+      } else {
+        // User cancelled the picker
+        callback({});
+      }
+    },
+  );
+
+  // Allow media-related permissions for the loaded origin
+  mainWindow.webContents.session.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      const url = webContents?.getURL();
+      if (url && new URL(url).origin === BUILD_URL.origin) {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    },
+  );
+
+  mainWindow.webContents.session.setPermissionCheckHandler(
+    (webContents, permission) => {
+      if (!webContents) return false;
+      const url = webContents.getURL();
+      return new URL(url).origin === BUILD_URL.origin;
+    },
+  );
 
   // minimise window to tray
   mainWindow.on("close", (event) => {
