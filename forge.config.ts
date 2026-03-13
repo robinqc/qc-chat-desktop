@@ -147,6 +147,8 @@ const config: ForgeConfig = {
         "This app requires microphone access for voice and video calls.",
       NSCameraUsageDescription:
         "This app requires camera access for video calls.",
+      NSAudioCaptureUsageDescription:
+        "This app requires audio capture access to share system audio in screen shares.",
     },
   },
   rebuildConfig: {},

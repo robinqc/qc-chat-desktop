@@ -21,6 +21,15 @@ if (!config.hardwareAcceleration) {
   app.disableHardwareAcceleration();
 }
 
+// Enable system audio loopback capture on macOS 15+ (Sequoia)
+// Uses Core Audio Taps (CATAP) instead of ScreenCaptureKit
+if (process.platform === "darwin") {
+  app.commandLine.appendSwitch(
+    "enable-features",
+    "MacCatapSystemAudioLoopbackCapture",
+  );
+}
+
 // ensure only one copy of the application can run
 const acquiredLock = app.requestSingleInstanceLock();
 
